@@ -239,6 +239,8 @@ var gameLoop = setInterval(function() {
   }
 }, 10);
 
+var board = grid;
+  
 board.addEventListener("mousemove", function(event) {
   mousePos.x = event.clientX;
   mousePos.y = board.clientHeight - event.clientY;
