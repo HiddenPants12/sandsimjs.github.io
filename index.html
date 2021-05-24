@@ -225,10 +225,11 @@ function addParticle(type, pos, data) {
 var gameLoop = setInterval(function() {
   if (mouseDown) {
     if (material) {
-      addParticle(material, {x: mousePos.x, y: mousePos.y}, {});
-      addParticle(material, {x: mousePos.x, y: mousePos.y + 1}, {});
-      addParticle(material, {x: mousePos.x + -1, y: mousePos.y}, {});
-      addParticle(material, {x: mousePos.x + -1, y: mousePos.y + 1}, {});
+      for(let x = 0; x < 3; x++) {
+        for(let y = 0; y < 3; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
     } else {
       addParticle(material, {x: mousePos.x, y: mousePos.y}, {});
     }
