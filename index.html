@@ -30,6 +30,7 @@ p {
 
   
 <script>
+setTimout(function() {
   var nodes = [];
 var grid = document.getElementById("board");
 var paused = true;
@@ -271,6 +272,7 @@ document.addEventListener("keydown", function(event) {
     paused = !paused;
   }
 })
+}, 3000)
 </script>
 </head>
 
