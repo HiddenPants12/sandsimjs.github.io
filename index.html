@@ -31,13 +31,16 @@ p {
   
 <script>
 setTimeout(function() {
-  var nodes = [];
+var nodes = [];
 var grid = document.getElementById("board");
 var paused = true;
 var mouseDown = false;
 var mousePos = {x: 0, y: 0};
 var material = "sand";
 var itemText = document.getElementById("item");
+var idNum = 0;
+var acidSpeed = 10000;
+var acidDeath = 0;
 
 class Node {
   constructor(type, pos, data) {
@@ -45,6 +48,8 @@ class Node {
     this.pos = pos;
     this.data = data;
     this.id = nodes.length;
+    this.corrosion = 50;
+    this.inactive = false;
     if (!this.type != "wood") {
       this.velocity = 1;
       this.gravity = 0;
@@ -58,15 +63,42 @@ class Node {
     }
     
     if (type == "water") {
-      this.color = "#0000FF";
+      this.color = `rgb(${0}, ${0}, ${255})`;
     }
     
     if (type == "wood") {
       this.color = "#A52A2A";
     }
+    
+    if (type == "acid") {
+      this.color = "#00FF00";
+    }
+    
+    if (type == "potion") {
+      this.color = "#FF00FF";
+    }
   }
   
   iterate() {
+    if (this.inactive) {
+      return;
+    }
+    
+    if (this.corrosion <= 0) {
+      if (this.type != "water") {
+        document.getElementById(this.id + "").remove();
+        this.inactive = true;
+        return;
+      } else {
+        this.corrosion = 50;
+        this.type = "acid";
+      }
+    }
+    
+    if (this.inactive) {
+      return;
+    }
+    
     if (this.type == "wood") {
       return;
     }
@@ -75,7 +107,7 @@ class Node {
     var velocity = this.velocity;
     var gravity = this.gravity;
     if (around.down) {
-      if (around.down.type == "water" && this.type == "sand") {
+      if ((around.down.type == "water" || around.down.type == "acid" || around.down.type == "potion") && this.type == "sand") {
         down = true;
       }
     }
@@ -84,15 +116,38 @@ class Node {
       this.velocity = 1;
     }
     
+    if (this.type == "acid") {
+      if (around.same && around.same.type != "acid") {
+        this.corrosion += -0.1 * acidDeath;
+        around.same.corrosion += -0.1 * acidSpeed;
+      }
+      if (around.left && around.left.type != "acid") {
+        this.corrosion += -0.1 * acidDeath;
+        around.left.corrosion += -0.1 * acidSpeed;
+      }
+      if (around.right && around.right.type != "acid") {
+        this.corrosion += -0.1 * acidDeath;
+        around.right.corrosion += -0.1 * acidSpeed;
+      }
+      if (around.down && around.down.type != "acid") {
+        this.corrosion += -0.1 * acidDeath;
+        around.down.corrosion += -0.2 * acidSpeed;
+      }
+      if (around.up && around.up.type != "acid") {
+        this.corrosion += -0.1 * acidDeath;
+        around.up.corrosion += -0.2 * acidSpeed;
+      }
+    }
+    
     if (!around.down || down) {
       this.move("down");
       this.velocity += this.gravity;
-    } else if (!around.leftDown) {
+    } else if (!around.leftDown && this.pos.x > 0) {
       this.move("leftDown");
     } else if (!around.rightDown) {
       this.move("rightDown");
-    } else if (this.type == "water") {
-      if (!around.left) {
+    } else if (this.type == "water" || this.type == "acid") {
+      if (!around.left && this.pos.x > 0) {
         this.move("left");
       } else if (!around.right) {
         this.move("right");
@@ -100,7 +155,7 @@ class Node {
     }
     
     if (around.same) {
-      if ((this.type == "sand" && around.same.type == "water")) {
+      if ((this.type == "sand" && (around.same.type == "acid" || around.same.type == "water"))) {
         around.same.move("up");
       }
       if ((around.same.type == "wood")) {
@@ -117,6 +172,10 @@ class Node {
     var div = document.getElementById(this.id + "");
     div.style.left = this.pos.x + "px";
     div.style.bottom = this.pos.y + "px";
+    if (this.type == "acid") {
+      this.color = "#00FF00";
+      div.style.backgroundColor = this.color;
+    }
   }
   
   getNeighbors() {
@@ -126,11 +185,14 @@ class Node {
       leftDown: undefined,
       rightDown: undefined,
       down: undefined,
+      up: undefined,
       same: undefined
     };
     var pos = this.pos;
     var id = this.id;
+    var type = this.type;
     nodes.forEach(function(node) {
+      if (type == "wood" || node.inactive) return;
       let newpos = {x: pos.x - node.pos.x, y: pos.y - node.pos.y};
       if (newpos.x == 1 && newpos.y == 0) {
         ret.left = node;
@@ -150,6 +212,10 @@ class Node {
       
       if (newpos.x == 0 && newpos.y == 1) {
         ret.down = node;
+      }
+      
+      if (newpos.x == 0 && newpos.y == -1) {
+        ret.up = node;
       }
       
       if (newpos.x == 0 && newpos.y == 0 && node.id != id) {
@@ -179,14 +245,14 @@ class Node {
       }
     }
     if (dir == "rightDown") {
-      if (!(this.pos.y - 1 < 0) && !(this.pos.x + 1 < 0)) {
+      if (!(this.pos.y - 1 < 0) && !(this.pos.x + 1 < 0) && !(this.pos.x + 1 > board.clientWidth)) {
         this.pos.y += -1;
         this.pos.x += 1;
       }
     }
     
     if (dir == "right") {
-      if (!(this.pos.x + 1 < 0)) {
+      if (!(this.pos.x + 1 < 0) && !(this.pos.x + 1 > board.clientWidth)) {
         this.pos.x += 1;
       }
     }
@@ -218,20 +284,25 @@ function addParticle(type, pos, data) {
   nodeH.style.bottom = pos.y + "px";
   nodeH.style.width = "1px";
   nodeH.style.height = "1px";
-  nodeH.id = nodes.length - 1 + "";
+  nodeH.id = idNum + "";
+  idNum++;
   grid.appendChild(nodeH);
 }
 
 var gameLoop = setInterval(function() {
   if (mouseDown) {
-    if (material) {
-      for(let x = 0; x < 3; x++) {
-        for(let y = 0; y < 3; y++) {
+    if (material == "wood") {
+      for(let x = 0; x < 1; x++) {
+        for(let y = 0; y < 1; y++) {
           addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
         }
       }
     } else {
-      addParticle(material, {x: mousePos.x, y: mousePos.y}, {});
+      for(let x = 0; x < 1; x++) {
+        for(let y = 0; y < 1; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
     }
   }
   if (!paused) {
@@ -241,8 +312,6 @@ var gameLoop = setInterval(function() {
   }
 }, 1);
 
-var board = grid;
-  
 board.addEventListener("mousemove", function(event) {
   mousePos.x = event.clientX;
   mousePos.y = board.clientHeight - event.clientY;
@@ -263,6 +332,8 @@ document.addEventListener("keydown", function(event) {
     } else if (material == "water") {
       material = "wood";
     } else if (material == "wood") {
+      material = "acid";
+    } else if (material == "acid") {
       material = "sand";
     }
     
@@ -272,7 +343,53 @@ document.addEventListener("keydown", function(event) {
   if (event.key == ' ') {
     paused = !paused;
   }
+  
+  if (event.key == "c") {
+    clearGrid(nodes);
+  }
+  
+  if (event.key == "f") {
+    for(let x = 0; x < 10; x++) {
+        for(let y = 0; y < 10; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
+  }
+  
+  if (event.key == "g") {
+    for(let x = 0; x < 1; x++) {
+        for(let y = 0; y < 30; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
+  }
+  
+  if (event.key == "r") {
+    for(let x = 0; x < 5; x++) {
+        for(let y = 0; y < 1; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
+  }
+  
+  if (event.key == "t") {
+    for(let x = 0; x < 1; x++) {
+        for(let y = 0; y < 5; y++) {
+          addParticle(material, {x: mousePos.x + x, y: mousePos.y + y}, {});
+        }
+      }
+  }
 })
+
+function clearGrid(grid) {
+  paused = true;
+  grid.forEach(function(node) {
+    if (!node.inactive) document.getElementById(node.id + "").remove();
+  });
+  nodes = [];
+  idNum = 0;
+  paused = false;
+}
 }, 3000)
 </script>
 </head>
