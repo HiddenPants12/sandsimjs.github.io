@@ -103,7 +103,7 @@ class Node {
     var velocity = this.velocity;
     var gravity = this.gravity;
     if (around.down) {
-      if ((around.down.type == "water" || around.down.type == "acid" || around.down.type == "potion") && this.type == "sand") {
+      if ((around.down.type == "water" || around.down.type == "acid") && this.type == "sand") {
         down = true;
       }
     }
